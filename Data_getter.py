@@ -9,7 +9,7 @@ class csv_getter:
     A class to get various datasets from online sources for a given year.
 
     Available methods:
-    Population_var, MedianIncome_var, MedianHouseAge_var, ShorelineCounties_var, WatershedCounties_var, TotalHouses_var, StormDamage_var
+    Population_var, MedianIncome_var, HouseAge_var, ShorelineCounties_var, WatershedCounties_var, StormDamage_var
 
     Parameters:
     year (int): The year for which data is to be retrieved.
@@ -65,10 +65,10 @@ class csv_getter:
             "for": "county:*",
             "key": self.api_key
         }
-        r = requests.get(url, params=params)
-        r.raise_for_status()
+        response = requests.get(url, params=params)
+        response.raise_for_status()
 
-        data = r.json()
+        data = response.json()
         df = pd.DataFrame(data[1:], columns=data[0])
 
         df.rename(columns={
@@ -76,7 +76,6 @@ class csv_getter:
         }, inplace=True)
 
         df["population"] = df["population"].astype(int)
-        df["year"] = year
 
         return df
     
@@ -107,14 +106,125 @@ class csv_getter:
         return df
 
     def MedianIncome_var(self):
-        raise NotImplementedError("Method not implemented yet.")
-    def MedianHouseAge_var(self):
-        raise NotImplementedError("Method not implemented yet.")
+        """
+        Download ACS 5-year county-level median household income for a given year
+        and save it as a CSV.
+
+        Parameters
+        ----------
+        year : int
+            ACS 5-year estimate year (must be between 2009 and 2023)
+        api_key : str
+            Census API key
+        out_dir : str
+            Directory where the CSV will be written
+
+        Output
+        ------
+        Writes a CSV named:
+        county_median_household_income_<year>.csv
+        """
+
+        year = self.year
+        api_key = self.api_key
+
+        if self.check_for_data(year, "MedianIncome_var"):
+            return
+
+        url = f"https://api.census.gov/data/{year}/acs/acs5"
+        params = {
+            "get": "NAME,B19013_001E",
+            "for": "county:*",
+            "in": "state:*",
+            "key": api_key
+        }
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+
+        data = response.json()
+        df = pd.DataFrame(data[1:], columns=data[0])
+
+        df.rename(columns={"B19013_001E": "median_household_income"}, inplace=True)
+
+        return df
+    
+    def HouseAge_var(self):
+        """
+        Downloads ACS 5-year county-level home age data (Table B25034)
+        for a given year and saves it as a CSV.
+
+        Parameters
+        ----------
+        year : int
+            ACS 5-year end year (e.g., 2019, 2020, 2021, 2022)
+        api_key : str
+            Census API key
+        output_csv : str
+            Path to output CSV file
+        """
+
+        year = self.year
+        api_key = self.api_key
+
+        if self.check_for_data(year, "MedianHouseAge_var"):
+            return
+
+        # ACS 5-year endpoint
+        base_url = f"https://api.census.gov/data/{year}/acs/acs5"
+
+        # B25034: Year structure built
+        variables = [
+            "NAME",
+            "B25034_001E",  # Total housing units
+            "B25034_002E",  # Built 2020 or later (recent years vary by ACS year)
+            "B25034_003E",  # Built 2010 to 2019
+            "B25034_004E",  # Built 2000 to 2009
+            "B25034_005E",  # Built 1990 to 1999
+            "B25034_006E",  # Built 1980 to 1989
+            "B25034_007E",  # Built 1970 to 1979
+            "B25034_008E",  # Built 1960 to 1969
+            "B25034_009E",  # Built 1950 to 1959
+            "B25034_010E"   # Built 1940 to 1949
+        ]
+
+        params = {
+            "get": ",".join(variables),
+            "for": "county:*",
+            "in": "state:*",
+            "key": api_key
+        }
+
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+
+        data = response.json()
+
+        df = pd.DataFrame(data[1:], columns=data[0])
+
+       # Convert numeric columns
+        for col in variables[1:]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        # rename columns for clarity
+        df.rename(columns={
+            "B25034_001E": "total_housing_units",
+            "B25034_002E": "built_2020_or_later",
+            "B25034_003E": "built_2010_to_2019",
+            "B25034_004E": "built_2000_to_2009",
+            "B25034_005E": "built_1990_to_1999",
+            "B25034_006E": "built_1980_to_1989",
+            "B25034_007E": "built_1970_to_1979",
+            "B25034_008E": "built_1960_to_1969",
+            "B25034_009E": "built_1950_to_1959",
+            "B25034_010E": "built_1940_to_1949"
+        }, inplace=True)
+
+        return df
+
     def ShorelineCounties_var(self):
         raise NotImplementedError("Method not implemented yet.")
     def WatershedCounties_var(self):
-        raise NotImplementedError("Method not implemented yet.")
-    def TotalHouses_var(self):
         raise NotImplementedError("Method not implemented yet.")
 
 def data_getter(year, census_api_key, variables=None):

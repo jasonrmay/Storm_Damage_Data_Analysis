@@ -9,7 +9,9 @@
 # Motivation
 
 # quirks
-
+ignoring zero damage
+ignoring zones
+population is from the year before
 # Variables
 
 # Data Collection

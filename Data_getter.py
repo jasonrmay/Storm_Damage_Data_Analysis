@@ -4,6 +4,7 @@ import requests
 import re
 import pathlib
 
+
 class csv_getter:
     """
     A class to get various datasets from online sources for a given year.
@@ -45,8 +46,7 @@ class csv_getter:
         if not self.data_path.exists():
             self.data_path.mkdir()
 
-    
-    def check_for_data(self, year, variable):
+    def check_for_data(self, variable):
         file_path = self.data_path / f"{variable[:-4]}.csv"
         return file_path.exists()
 
@@ -56,7 +56,7 @@ class csv_getter:
         # population year is from the year before the storm data to account for post-storm changes (deaths, migration, etc.)
         year -= 1
 
-        if self.check_for_data(year, "Population_var"):
+        if self.check_for_data( "Population_var"):
             return 
 
         url = f"https://api.census.gov/data/{year}/acs/acs5"
@@ -83,7 +83,7 @@ class csv_getter:
 
         year = self.year
 
-        if self.check_for_data(year, "StormDamage_var"):
+        if self.check_for_data("StormDamage_var"):
             return
 
         # 1. Get the URL for the StormEvents details file for the given year
@@ -128,7 +128,7 @@ class csv_getter:
         year = self.year
         api_key = self.api_key
 
-        if self.check_for_data(year, "MedianIncome_var"):
+        if self.check_for_data("MedianIncome_var"):
             return
 
         url = f"https://api.census.gov/data/{year}/acs/acs5"
@@ -167,7 +167,7 @@ class csv_getter:
         year = self.year
         api_key = self.api_key
 
-        if self.check_for_data(year, "MedianHouseAge_var"):
+        if self.check_for_data("MedianHouseAge_var"):
             return
 
         # ACS 5-year endpoint
@@ -222,10 +222,89 @@ class csv_getter:
 
         return df
 
-    def ShorelineCounties_var(self):
-        raise NotImplementedError("Method not implemented yet.")
-    def WatershedCounties_var(self):
-        raise NotImplementedError("Method not implemented yet.")
+    def _arcgis_query_all(self,layer_query_url: str, out_fields: str) -> pd.DataFrame:
+        """
+        Query an ArcGIS layer and return ALL records, handling pagination.
+        """
+        rows = []
+        offset = 0
+        page_size = 2000  # service MaxRecordCount is 2000
+
+        while True:
+            params = {
+                "where": "1=1",
+                "outFields": out_fields,
+                "returnGeometry": "false",
+                "f": "json",
+                "resultOffset": offset,
+                "resultRecordCount": page_size,
+            }
+            r = requests.get(layer_query_url, params=params, timeout=120)
+            r.raise_for_status()
+            data = r.json()
+
+            # If ArcGIS returns an error, it will look like {"error": {...}}
+            if "error" in data:
+                raise RuntimeError(f"ArcGIS error from {layer_query_url}: {data['error']}")
+
+            feats = data.get("features", [])
+            if not feats:
+                break
+
+            for f in feats:
+                rows.append(f.get("attributes", {}))
+
+            offset += len(feats)
+
+            # Some services also include exceededTransferLimit; we’re paginating anyway.
+            if len(feats) < page_size:
+                break
+
+        return pd.DataFrame(rows)
+
+    def ShorelineCounties_var(self) -> pd.DataFrame:
+
+        if self.check_for_data("ShorelineCounties_var"):
+            return
+        
+        SHORELINE_LAYER = "https://maps1.coast.noaa.gov/arcgis/rest/services/Landcover/Coastal_County_Update_Review/MapServer/9/query"
+
+        df = self._arcgis_query_all(
+            SHORELINE_LAYER,
+            out_fields="fips,cntyname,st_fips,st_abbr,st_name"
+        )
+        df = df.rename(columns={
+            "fips": "FIPS",
+            "cntyname": "COUNTY",
+            "st_fips": "STATEFP",
+            "st_abbr": "STATE",
+            "st_name": "STATE_NAME",
+        })
+        df["FIPS"] = df["FIPS"].astype(str).str.zfill(5)
+        df["COASTAL_TYPE"] = "shoreline"
+        return df[["FIPS", "STATEFP", "STATE", "STATE_NAME", "COUNTY", "COASTAL_TYPE"]]
+
+    def WatershedCounties_var(self) -> pd.DataFrame:
+        
+        if self.check_for_data("WatershedCounties_var"):
+            return
+        
+        WATERSHED_LAYER = "https://maps1.coast.noaa.gov/arcgis/rest/services/Landcover/Coastal_County_Update_Review/MapServer/33/query"
+
+        df = self._arcgis_query_all(
+            WATERSHED_LAYER,
+            out_fields="fips,cntyname,st_fips,st_abbr,st_name"
+        )
+        df = df.rename(columns={
+            "fips": "FIPS",
+            "cntyname": "COUNTY",
+            "st_fips": "STATEFP",
+            "st_abbr": "STATE",
+            "st_name": "STATE_NAME",
+        })
+        df["FIPS"] = df["FIPS"].astype(str).str.zfill(5)
+        df["COASTAL_TYPE"] = "watershed"
+        return df[["FIPS", "STATEFP", "STATE", "STATE_NAME", "COUNTY", "COASTAL_TYPE"]]
 
 def data_getter(year, census_api_key, variables=None):
 

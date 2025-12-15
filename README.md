@@ -4,6 +4,8 @@
 
 # Project Description
 
+# Getting a census api key and setting it as a environmental variable
+
 # Motivation
 
 # quirks

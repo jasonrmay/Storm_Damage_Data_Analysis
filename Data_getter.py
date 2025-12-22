@@ -77,8 +77,8 @@ class csv_getter:
 
         df["population"] = df["population"].astype(int)
 
-        #combine state and county codes to form FIPS
-        df["FIPS"] = df["state"] + df["county"]
+        #combine state and county codes to form County FIPS with leading zeros if needed to make state fips 2 digits and county suffix fips 3 digits
+        df["county_fips"] = df["state"].astype(str).str.zfill(2) + df["county"].astype(str).str.zfill(3)
 
         # remove state and county columns
         df.drop(columns=["state", "county"], inplace=True)
@@ -109,12 +109,17 @@ class csv_getter:
         # 2. Download and read the CSV file into a DataFrame
         df = pd.read_csv(url, compression='gzip', low_memory=False)
 
-        #combine state and county codes to form FIPS
-        df["FIPS"] = df["STATE_FIPS"] + df["CZ_FIPS"]
+        #combine state and county codes to form County FIPS with leading zeros if needed to make state fips 2 digits and county suffix fips 3 digits
+        df["county_fips"] = df["STATE_FIPS"].astype(str).str.zfill(2) + df["CZ_FIPS"].astype(str).str.zfill(3)
 
         # drop state and county fips columns
         df.drop(columns=["STATE_FIPS", "CZ_FIPS"], inplace=True)
 
+        # combine county and state names into a single column following the format "COUNTY, STATE"
+        df["NAME"] = df["CZ_NAME"] + ", " + df["STATE"]
+
+        # keep only relevant columns
+        df = df[["county_fips", "EVENT_TYPE", "DAMAGE_PROPERTY", "NAME"]]
         return df
 
     def MedianIncome_var(self) -> pd.DataFrame:
@@ -159,8 +164,8 @@ class csv_getter:
 
         df.rename(columns={"B19013_001E": "median_household_income"}, inplace=True)
 
-        #combine state and county codes to form FIPS
-        df["FIPS"] = df["state"] + df["county"]
+        #combine state and county codes to form County FIPS with leading zeros if needed to make state fips 2 digits and county suffix fips 3 digits
+        df["county_fips"] = df["state"].astype(str).str.zfill(2) + df["county"].astype(str).str.zfill(3)
 
         # remove state and county columns
         df.drop(columns=["state", "county"], inplace=True)
@@ -238,8 +243,8 @@ class csv_getter:
             "B25034_010E": "built_1940_to_1949"
         }, inplace=True)
 
-        #combine state and county codes to form FIPS
-        df["FIPS"] = df["state"] + df["county"]
+        #combine state and county codes to form County FIPS with leading zeros if needed to make state fips 2 digits and county suffix fips 3 digits
+        df["county_fips"] = df["state"].astype(str).str.zfill(2) + df["county"].astype(str).str.zfill(3)
 
         # remove state and county columns
         df.drop(columns=["state", "county"], inplace=True)
@@ -302,14 +307,14 @@ class csv_getter:
             "cntyname": "COUNTY",
             "st_name": "STATE_NAME",
         })
-        df["FIPS"] = df["FIPS"].astype(str).str.zfill(5)
+        df["county_fips"] = df["FIPS"].astype(str).str.zfill(5)
         df["COASTAL_TYPE"] = "shoreline"
 
         # combine state names and county names into a single column following the format "COUNTY, STATE_NAME"
         df["COUNTY_STATE"] = df["COUNTY"] + ", " + df["STATE_NAME"]
         
         # return only relevant columns
-        return df[["FIPS", "COASTAL_TYPE", "COUNTY_STATE"]]
+        return df[["county_fips", "COASTAL_TYPE", "COUNTY_STATE"]]
 
     def WatershedCounties_var(self) -> pd.DataFrame:
         
@@ -327,13 +332,13 @@ class csv_getter:
             "cntyname": "COUNTY",
             "st_name": "STATE_NAME",
         })
-        df["FIPS"] = df["FIPS"].astype(str).str.zfill(5)
+        df["county_fips"] = df["FIPS"].astype(str).str.zfill(5)
         df["COASTAL_TYPE"] = "watershed"
 
         # combine state names and county names into a single column following the format "COUNTY, STATE_NAME"
         df["COUNTY_STATE"] = df["COUNTY"] + ", " + df["STATE_NAME"]
 
-        return df[["FIPS", "COASTAL_TYPE", "COUNTY_STATE"]]
+        return df[["county_fips", "COASTAL_TYPE", "COUNTY_STATE"]]
 
 def data_getter(year, census_api_key, variables=None):
 

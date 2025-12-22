@@ -50,7 +50,7 @@ class csv_getter:
         file_path = self.data_path / f"{variable[:-4]}.csv"
         return file_path.exists()
 
-    def Population_var(self):
+    def Population_var(self) -> pd.DataFrame:
         year = self.year
 
         # population year is from the year before the storm data to account for post-storm changes (deaths, migration, etc.)
@@ -85,7 +85,7 @@ class csv_getter:
 
         return df
     
-    def StormDamage_var(self):
+    def StormDamage_var(self) -> pd.DataFrame:
 
         year = self.year
 
@@ -117,7 +117,7 @@ class csv_getter:
 
         return df
 
-    def MedianIncome_var(self):
+    def MedianIncome_var(self) -> pd.DataFrame:
         """
         Download ACS 5-year county-level median household income for a given year
         and save it as a CSV.
@@ -167,7 +167,7 @@ class csv_getter:
 
         return df
     
-    def HouseAge_var(self):
+    def HouseAge_var(self) -> pd.DataFrame:
         """
         Downloads ACS 5-year county-level home age data (Table B25034)
         for a given year and saves it as a CSV.
@@ -248,7 +248,7 @@ class csv_getter:
 
     def _arcgis_query_all(self,layer_query_url: str, out_fields: str) -> pd.DataFrame:
         """
-        Query an ArcGIS layer and return ALL records, handling pagination.
+        Helper for shoreline and watershed counties: Query an ArcGIS layer and return ALL records, handling pagination.
         """
         rows = []
         offset = 0
@@ -295,17 +295,21 @@ class csv_getter:
 
         df = self._arcgis_query_all(
             SHORELINE_LAYER,
-            out_fields="fips,cntyname,st_abbr,st_name"
+            out_fields="fips,cntyname,st_name"
         )
         df = df.rename(columns={
             "fips": "FIPS",
             "cntyname": "COUNTY",
-            "st_abbr": "STATE",
             "st_name": "STATE_NAME",
         })
         df["FIPS"] = df["FIPS"].astype(str).str.zfill(5)
         df["COASTAL_TYPE"] = "shoreline"
-        return df[["FIPS", "STATE", "STATE_NAME", "COUNTY", "COASTAL_TYPE"]]
+
+        # combine state names and county names into a single column following the format "COUNTY, STATE_NAME"
+        df["COUNTY_STATE"] = df["COUNTY"] + ", " + df["STATE_NAME"]
+        
+        # return only relevant columns
+        return df[["FIPS", "COASTAL_TYPE", "COUNTY_STATE"]]
 
     def WatershedCounties_var(self) -> pd.DataFrame:
         
@@ -316,17 +320,20 @@ class csv_getter:
 
         df = self._arcgis_query_all(
             WATERSHED_LAYER,
-            out_fields="fips,cntyname,st_abbr,st_name"
+            out_fields="fips,cntyname,st_name"
         )
         df = df.rename(columns={
             "fips": "FIPS",
             "cntyname": "COUNTY",
-            "st_abbr": "STATE",
             "st_name": "STATE_NAME",
         })
         df["FIPS"] = df["FIPS"].astype(str).str.zfill(5)
         df["COASTAL_TYPE"] = "watershed"
-        return df[["FIPS", "STATE", "STATE_NAME", "COUNTY", "COASTAL_TYPE"]]
+
+        # combine state names and county names into a single column following the format "COUNTY, STATE_NAME"
+        df["COUNTY_STATE"] = df["COUNTY"] + ", " + df["STATE_NAME"]
+
+        return df[["FIPS", "COASTAL_TYPE", "COUNTY_STATE"]]
 
 def data_getter(year, census_api_key, variables=None):
 

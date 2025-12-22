@@ -9,7 +9,7 @@ class csv_getter:
     """
     A class to get various datasets from online sources for a given year.
 
-    Available methods:
+    Available variables:
     Population_var, MedianIncome_var, HouseAge_var, ShorelineCounties_var, WatershedCounties_var, StormDamage_var
 
     Parameters:
@@ -51,6 +51,10 @@ class csv_getter:
         return file_path.exists()
 
     def Population_var(self) -> pd.DataFrame:
+        """
+        Download ACS 5-year county-level population data for a given year
+        and save it as a CSV.
+        """
         year = self.year
 
         # population year is from the year before the storm data to account for post-storm changes (deaths, migration, etc.)
@@ -86,6 +90,10 @@ class csv_getter:
         return df
     
     def StormDamage_var(self) -> pd.DataFrame:
+        """
+        Download NOAA Storm Events Database damage data for a given year
+        and save it as a CSV.
+        """
 
         year = self.year
 
@@ -292,6 +300,10 @@ class csv_getter:
         return pd.DataFrame(rows)
 
     def ShorelineCounties_var(self) -> pd.DataFrame:
+        """
+        Downloads shoreline counties from NOAA ArcGIS service
+        and saves it as a CSV.
+        """
 
         if self.check_for_data("ShorelineCounties_var"):
             return
@@ -317,6 +329,10 @@ class csv_getter:
         return df[["county_fips", "COASTAL_TYPE", "COUNTY_STATE"]]
 
     def WatershedCounties_var(self) -> pd.DataFrame:
+        """
+        Downloads watershed counties from NOAA ArcGIS service
+        and saves it as a CSV.
+        """
         
         if self.check_for_data("WatershedCounties_var"):
             return
@@ -341,6 +357,9 @@ class csv_getter:
         return df[["county_fips", "COASTAL_TYPE", "COUNTY_STATE"]]
 
 def data_getter(year, census_api_key, variables=None):
+    """
+    Retrieves specified datasets for a given year and saves them as CSV files.
+    """
 
     getter = csv_getter(year, variables, census_api_key)
 
